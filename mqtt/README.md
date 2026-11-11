@@ -1,12 +1,13 @@
 # Simple MQTT for ESP32
 
-Three files:
+Files:
 
 | File | What it is |
 |---|---|
 | `config.h` | **Your settings**: WiFi, broker, list of topics to listen to |
 | `mqtt.ino` | Example sketch: what to do when a message arrives, what to send |
-| `mqtt.h` | The MQTT code. No need to edit |
+| `wifi_setup.h` / `wifi_setup.cpp` | The WiFi code. No need to edit |
+| `mqtt.h` / `mqtt.cpp` | The MQTT code. No need to edit |
 
 ## Setup
 
@@ -48,6 +49,18 @@ subscribed to `ahilal/uptime` shows the value the ESP32 sends.
 
 ## Using it in another project
 
-Copy `mqtt.h` and `config.h` next to your sketch, add `#include "mqtt.h"`,
-call `mqttBegin()` in `setup()`, `mqttLoop()` in `loop()`, and write your
-own `onMqttMessage` function.
+Copy `config.h`, `wifi_setup.h`, `wifi_setup.cpp`, `mqtt.h` and `mqtt.cpp`
+next to your sketch. Then:
+
+```cpp
+#include "wifi_setup.h"
+#include "mqtt.h"
+
+void onMqttMessage(String topic, String message) { /* your code */ }
+
+void setup() { wifiBegin(); mqttBegin(); }
+void loop()  { mqttLoop(); }
+```
+
+If a project already connects to WiFi its own way, leave out the two
+`wifi_setup` files and just call `mqttBegin()` after WiFi is connected.

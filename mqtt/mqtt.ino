@@ -1,6 +1,7 @@
 // ============================================================
 //  Example sketch. Settings and topic list are in config.h
 // ============================================================
+#include "wifi_setup.h"
 #include "mqtt.h"
 
 #define LED_PIN 2
@@ -24,6 +25,7 @@ void onMqttMessage(String topic, String message) {
 void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
+  wifiBegin();
   mqttBegin();
 }
 
