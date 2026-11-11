@@ -1,129 +1,53 @@
-# MqttManager – reusable MQTT module for ESP32
+# Simple MQTT for ESP32
 
-A small drop-in MQTT layer for ESP32 projects (Arduino framework, works in
-PlatformIO and the Arduino IDE). It wraps
-[PubSubClient](https://github.com/knolleary/pubsubclient) and takes care of
-the parts every project needs:
+Three files:
 
-- **Non-blocking auto-reconnect** with exponential backoff
-- **Per-topic handlers** with MQTT wildcards (`+`, `#`)
-- **Automatic re-subscribe** after every reconnect
-- **Base topic shorthand** – `~/led` expands to `<baseTopic>/led`
-- **Availability** – `online` / `offline` on `~/status` via Last Will
-- **Transport independent** – pass any Arduino `Client` (WiFi, TLS, Ethernet)
-
-## Folder layout
-
-```
-mqtt/
-├── src/
-│   ├── MqttManager.h / .cpp   the module
-│   └── MqttWifi.h             optional WiFi helper (not required)
-├── examples/
-│   ├── BasicPubSub/           minimal publish + subscribe
-│   └── ModularDevice/         several feature classes sharing one MqttManager
-├── library.json               PlatformIO manifest
-└── library.properties         Arduino IDE manifest
-```
-
-## Adding it to a project
-
-**PlatformIO** – copy the `mqtt` folder into your project's `lib/` folder.
-PubSubClient is installed automatically (declared in `library.json`).
-
-**Arduino IDE** – copy the `mqtt` folder into `Documents/Arduino/libraries/`
-and install *PubSubClient* from the Library Manager.
-
-## Quick start
-
-```cpp
-#include <WiFi.h>
-#include <MqttManager.h>
-#include <MqttWifi.h>
-
-WiFiClient net;
-MqttManager mqtt(net);
-
-void setup() {
-  MqttWifi::begin("ssid", "password");
-
-  MqttConfig config;
-  config.host = "192.168.1.10";
-  config.baseTopic = "home/demo";
-
-  mqtt.setNetworkCheck(MqttWifi::connected);  // don't try while WiFi is down
-
-  mqtt.subscribe("~/led/set", [](const String& topic, const String& payload) {
-    digitalWrite(2, payload == "ON");
-    mqtt.publish("~/led", payload, true);
-  });
-
-  mqtt.begin(config);
-}
-
-void loop() {
-  mqtt.loop();  // must be called continuously
-}
-```
-
-`subscribe()` can be called before or after `begin()`, and before the
-connection exists – subscriptions are stored and applied on every connect.
-
-## Configuration (`MqttConfig`)
-
-| Field | Default | Meaning |
-|---|---|---|
-| `host` | – (required) | Broker hostname or IP |
-| `port` | `1883` | Use `8883` for TLS |
-| `clientId` | auto (`esp32-<mac>`) | Must be unique per device on the broker |
-| `username` / `password` | none | Broker login |
-| `baseTopic` | client ID | Prefix that replaces `~` in topics |
-| `useAvailability` | `true` | Publish online/offline + register Last Will |
-| `availabilityTopic` | `~/status` | |
-| `payloadOnline` / `payloadOffline` | `online` / `offline` | |
-| `keepAliveSec` | `30` | |
-| `socketTimeoutSec` | `5` | Longest time a connect attempt can block |
-| `bufferSize` | `512` | Max packet size (topic + payload); raise for big JSON |
-| `cleanSession` | `true` | |
-| `reconnectMinMs` / `reconnectMaxMs` | `1000` / `30000` | Backoff range |
-
-## API
-
-| Call | Purpose |
+| File | What it is |
 |---|---|
-| `begin(config)` | Apply configuration and start connecting |
-| `loop()` | Keep the connection alive; call from `loop()` |
-| `subscribe(filter, handler, qos)` | Handler gets `(const String& topic, const String& payload)` |
-| `subscribeRaw(filter, handler, qos)` | Handler gets `(const char* topic, const uint8_t* payload, size_t length)` – for binary data |
-| `unsubscribe(filter)` | |
-| `publish(topic, payload, retain)` | Payload as `const char*`, `String`, or bytes + length |
-| `onConnect(fn)` / `onDisconnect(fn)` | Connection events (e.g. re-publish state) |
-| `setNetworkCheck(fn)` | Skip connect attempts while `fn()` is false |
-| `connected()` / `state()` | Status; `state()` is the PubSubClient error code |
-| `disconnect()` / `reconnect()` | Stop / resume manually (e.g. before deep sleep) |
-| `expandTopic("~/x")` | Returns the full topic |
-| `client()` | The underlying `PubSubClient` |
+| `config.h` | **Your settings**: WiFi, broker, list of topics to listen to |
+| `mqtt.ino` | Example sketch: what to do when a message arrives, what to send |
+| `mqtt.h` | The MQTT code. No need to edit |
 
-## TLS
+## Setup
+
+1. Arduino IDE → Library Manager → install **PubSubClient**.
+2. Open `mqtt.ino`, fill in WiFi name and password in `config.h`, upload.
+3. Open Serial Monitor at 115200 to see the connection and messages.
+
+## Where to put topics
+
+**Receive a topic** – two places:
+
+1. `config.h` – add a line to `LISTEN_TOPICS`:
+   ```cpp
+   "ahilal/fan",
+   ```
+2. `mqtt.ino` – add an `if` inside `onMqttMessage`:
+   ```cpp
+   if (topic == "ahilal/fan") {
+     // message holds the text that was sent
+   }
+   ```
+
+**Send a topic** – one line, anywhere in your code, no list needed:
 
 ```cpp
-#include <WiFiClientSecure.h>
-
-WiFiClientSecure net;
-MqttManager mqtt(net);
-
-// in setup():
-net.setCACert(ROOT_CA_PEM);
-config.port = 8883;
+mqttSend("ahilal/temperature", String(25.4));
 ```
 
-## Good to know
+There is no limit on the number of topics either way.
 
-- Publishing is **QoS 0** (PubSubClient limitation); subscriptions support
-  QoS 0 and 1. `publish()` returns `false` while disconnected – messages are
-  not queued.
-- While the broker is unreachable, one connect attempt can block `loop()` for
-  up to `socketTimeoutSec`; the backoff keeps those attempts rare.
-- Keep handlers short. Do not call `delay()` inside them.
-- For a multi-feature project, follow `examples/ModularDevice`: each feature
-  takes a `MqttManager&` and registers its own topics.
+## Phone app
+
+Use the same broker (`broker.emqx.io`, port `1883`, TCP). A button that
+publishes `1` / `0` to `ahilal/led` switches the LED; a text widget
+subscribed to `ahilal/uptime` shows the value the ESP32 sends.
+
+`broker.emqx.io` is public: anyone can read or write your topics. Change
+`ahilal/` to your own prefix, and don't use it for anything private.
+
+## Using it in another project
+
+Copy `mqtt.h` and `config.h` next to your sketch, add `#include "mqtt.h"`,
+call `mqttBegin()` in `setup()`, `mqttLoop()` in `loop()`, and write your
+own `onMqttMessage` function.
