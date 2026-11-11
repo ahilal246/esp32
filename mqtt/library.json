@@ -1,0 +1,15 @@
+{
+  "name": "MqttManager",
+  "version": "1.0.0",
+  "description": "Reusable, non-blocking MQTT module for ESP32: auto-reconnect, per-topic handlers with wildcards, base topic and availability.",
+  "keywords": "mqtt, esp32, iot, pubsubclient",
+  "frameworks": "arduino",
+  "platforms": ["espressif32", "espressif8266"],
+  "dependencies": [
+    {
+      "owner": "knolleary",
+      "name": "PubSubClient",
+      "version": "^2.8"
+    }
+  ]
+}
