@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <mbedtls/base64.h>
 #include "config.h"
 
 static WiFiClient net;
@@ -58,3 +59,38 @@ bool mqttSend(const char* topic, String message, bool keep) {
 }
 
 bool mqttConnected() { return client.connected(); }
+
+bool mqttSendBase64(const char* topic, const uint8_t* data, size_t length, const char* prefix) {
+  if (!client.connected()) return false;
+
+  // Base64 turns every 3 bytes into 4 letters, so we know the final size
+  // up front. MQTT needs that size before the first byte is sent.
+  size_t prefixLength = strlen(prefix);
+  size_t textLength   = ((length + 2) / 3) * 4;
+
+  if (!client.beginPublish(topic, prefixLength + textLength, false)) return false;
+
+  bool ok = true;
+  if (prefixLength > 0) ok = client.write((const uint8_t*)prefix, prefixLength) == prefixLength;
+
+  // Convert and send 900 bytes at a time (900 bytes -> 1200 letters).
+  // 900 is a multiple of 3, so the pieces join up into one valid Base64 text.
+  const size_t PIECE = 900;
+  unsigned char text[1201];
+  for (size_t done = 0; ok && done < length; done += PIECE) {
+    size_t count = (length - done < PIECE) ? (length - done) : PIECE;
+    size_t made  = 0;
+    ok = mbedtls_base64_encode(text, sizeof(text), &made, data + done, count) == 0 &&
+         client.write(text, made) == made;
+  }
+
+  if (!client.endPublish()) ok = false;
+
+  if (!ok) {
+    // The message was cut off halfway, so the connection is in a broken
+    // state. Drop it; mqttLoop() connects again by itself.
+    Serial.println("MQTT: big message failed, reconnecting");
+    client.disconnect();
+  }
+  return ok;
+}

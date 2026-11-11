@@ -3,6 +3,7 @@
 // ============================================================
 #include "wifi_setup.h"
 #include "mqtt.h"
+#include "camera.h"
 
 #define LED_PIN 2
 
@@ -27,10 +28,12 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   wifiBegin();
   mqttBegin();
+  cameraBegin();
 }
 
 void loop() {
   mqttLoop();
+  cameraLoop();   // sends a picture to CAMERA_TOPIC (see config.h)
 
   // ---- SEND: use any topic you like, no list needed ----------
   if (millis() - lastSend >= 5000) {

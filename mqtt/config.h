@@ -22,3 +22,11 @@ static const char* const LISTEN_TOPICS[] = {
   "ahilal/relay",
   // "ahilal/another/topic",
 };
+
+// ---- 4. Camera (only for the ESP32-CAM AI Thinker board) ---
+#define CAMERA_TOPIC        "ahilal/camera"   // put this topic in the app's Image panel
+#define CAMERA_INTERVAL_MS  500               // time between pictures: 500 = 2 per second
+#define CAMERA_SIZE         FRAMESIZE_QVGA    // QQVGA 160x120, QVGA 320x240, VGA 640x480
+#define CAMERA_QUALITY      12                // 10 = sharp and big ... 30 = rough and small
+// If the app shows no picture, change "" to "data:image/jpeg;base64,"
+#define CAMERA_PREFIX       ""
