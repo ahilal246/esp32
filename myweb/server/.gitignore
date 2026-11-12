@@ -1,0 +1,4 @@
+__pycache__/
+# the Cloudflare program, if you put it next to server.py
+cloudflared
+cloudflared.exe
