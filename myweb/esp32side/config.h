@@ -30,7 +30,7 @@ const framesize_t FRAME_SIZE = FRAMESIZE_QVGA;
 const int JPEG_QUALITY = 20;
 
 // ---- 4. Fixed address (optional) ---------------------------
-// Give the board a fixed address so ESP32_IP in server.js never changes.
+// Give the board a fixed address so ESP32_IP in webside/config.js never changes.
 // Remove the two slashes on the next line and set your own numbers.
 // #define USE_FIXED_IP
 #ifdef USE_FIXED_IP

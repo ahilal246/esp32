@@ -4,12 +4,12 @@
 
   What this sketch does
     - Connects to your WiFi and prints the board's IP address.
-    - Port 81:  /stream    live video (MJPEG). server.js reads this.
+    - Port 81:  /stream    live video (MJPEG). The web side (webside folder) reads this.
     - Port 80:  /button1   toggles the flash LED (GPIO 4)
                 /button2   toggles the small red LED on the back (GPIO 33)
                 /          a simple test page with the video and both buttons
 
-  These addresses match the defaults in server.js, so there you only have
+  These addresses match the defaults in webside/config.js, so there you only have
   to fill in ESP32_IP.
 
   Files in this folder
@@ -50,7 +50,7 @@ void setup() {
 
   String ip = WiFi.localIP().toString();
   Serial.println("Ready.");
-  Serial.println("  Board IP (put this in ESP32_IP in server.js): " + ip);
+  Serial.println("  Board IP (put this in ESP32_IP in webside/config.js): " + ip);
   Serial.println("  Test page: http://" + ip + "/");
   Serial.println("  Video:     http://" + ip + ":81/stream");
   Serial.println("  Buttons:   http://" + ip + "/button1   and   /button2");

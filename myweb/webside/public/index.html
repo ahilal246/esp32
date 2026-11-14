@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32-CAM</title>
+<style>
+  body { margin: 0; padding: 16px; background: #0e1116; color: #e8ebf0;
+         font: 16px system-ui, sans-serif; text-align: center; }
+  h3 { margin: 4px 0 14px; }
+  video { width: 100%; max-width: 640px; aspect-ratio: 4 / 3; background: #000;
+          border-radius: 10px; }
+  button { font: inherit; padding: 12px 18px; margin: 10px 6px; border-radius: 10px;
+           border: 1px solid #2c3442; background: #1b212b; color: inherit; cursor: pointer; }
+  button:active { background: #2a3342; }
+  p { color: #98a2b3; font-size: 14px; margin: 8px 0; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <h3>ESP32-CAM</h3>
+
+  <video id="video" autoplay muted playsinline></video>
+  <p id="videoStatus">Connecting to the video...</p>
+
+  <div>
+    <button onclick="press('button1')">Button 1</button>
+    <button onclick="press('button2')">Button 2</button>
+  </div>
+  <p id="reply"></p>
+
+<script>
+  // ---------------------------------------------------------- buttons ---
+  // A click goes to the server (server.js), which passes it on to the ESP32.
+  // The ESP32's answer ("Button 1: ON") is shown under the buttons.
+  const reply = document.getElementById('reply');
+
+  async function press(name) {
+    try {
+      const answer = await fetch('/api/' + name);
+      reply.textContent = await answer.text();
+    } catch (error) {
+      reply.textContent = 'No answer from the server';
+    }
+  }
+
+  // ------------------------------------------------------------ video ---
+  // The video arrives over WebRTC from MediaMTX. This page and MediaMTX
+  // first agree on the connection through "/cam/whep" (WHEP, the standard
+  // way to ask for a WebRTC video), then the video flows directly.
+  const WEBRTC_URL = '/cam/whep';
+  const RETRY_MS = 3000;
+
+  const video = document.getElementById('video');
+  const videoStatus = document.getElementById('videoStatus');
+  let connection = null;
+  let sessionUrl = null;
+  let retryTimer = null;
+
+  // MediaMTX tells us which helper servers (STUN/TURN) to use. They help
+  // two computers behind home routers find a way to each other.
+  async function getHelperServers() {
+    const fallback = [{ urls: 'stun:stun.l.google.com:19302' }];
+    try {
+      const answer = await fetch(WEBRTC_URL, { method: 'OPTIONS' });
+      const servers = [];
+      const pattern = /<([^>]+)>; rel="ice-server"(?:; username="(.*?)"; credential="(.*?)"; credential-type="password")?/g;
+      for (const m of (answer.headers.get('Link') || '').matchAll(pattern)) {
+        const one = { urls: [m[1]] };
+        if (m[2] !== undefined) {
+          one.username = JSON.parse('"' + m[2] + '"');
+          one.credential = JSON.parse('"' + m[3] + '"');
+        }
+        servers.push(one);
+      }
+      return servers.length ? servers : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  // Wait until the browser has listed the ways it can be reached.
+  function addressesCollected(pc) {
+    return new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      const timer = setTimeout(resolve, 3000);   // do not wait longer than 3 s
+      pc.addEventListener('icegatheringstatechange', () => {
+        if (pc.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
+      });
+    });
+  }
+
+  function closeConnection() {
+    if (sessionUrl) fetch(sessionUrl, { method: 'DELETE', keepalive: true }).catch(() => {});
+    if (connection) connection.close();
+    connection = null;
+    sessionUrl = null;
+  }
+
+  function retry(message) {
+    videoStatus.textContent = message;
+    closeConnection();
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(startVideo, RETRY_MS);
+  }
+
+  async function startVideo() {
+    closeConnection();
+    try {
+      const pc = new RTCPeerConnection({ iceServers: await getHelperServers() });
+      connection = pc;
+
+      pc.addTransceiver('video', { direction: 'recvonly' });   // we only watch
+      pc.ontrack = (event) => { video.srcObject = event.streams[0]; };
+      pc.onconnectionstatechange = () => {
+        if (pc !== connection) return;
+        if (pc.connectionState === 'connected') videoStatus.textContent = 'Live';
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          retry('Video connection lost. Trying again...');
+        }
+      };
+
+      // Our offer goes to MediaMTX, its answer comes back.
+      await pc.setLocalDescription(await pc.createOffer());
+      await addressesCollected(pc);
+
+      const answer = await fetch(WEBRTC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/sdp' },
+        body: pc.localDescription.sdp,
+      });
+      if (pc !== connection) return;
+      if (answer.status === 404) return retry('The camera is offline. Waiting for it...');
+      if (answer.status !== 201) return retry('The video server is not ready. Trying again...');
+
+      const location = answer.headers.get('Location');
+      if (location) sessionUrl = new URL(location, window.location.href).toString();
+
+      await pc.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
+      if (pc.connectionState !== 'connected') videoStatus.textContent = 'Connecting to the video...';
+    } catch (error) {
+      retry('No video yet. Trying again...');
+    }
+  }
+
+  window.addEventListener('pagehide', closeConnection);
+  startVideo();
+</script>
+</body>
+</html>

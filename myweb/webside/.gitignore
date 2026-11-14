@@ -1,0 +1,12 @@
+# Programs you download into this folder
+mediamtx
+mediamtx.exe
+cloudflared
+cloudflared.exe
+ffmpeg
+ffmpeg.exe
+
+# Files the programs create
+auto.key
+auto.crt
+node_modules/
