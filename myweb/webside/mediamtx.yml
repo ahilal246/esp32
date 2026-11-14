@@ -1,0 +1,43 @@
+# ============================================================
+#  MediaMTX settings (the program that makes the WebRTC video).
+#  You normally do not need to edit this file.
+#  server.js starts MediaMTX with it.
+# ============================================================
+
+logLevel: info
+
+# ---- Video in: FFmpeg hands the H.264 video to MediaMTX here ----
+# Only this computer can connect (127.0.0.1).
+rtsp: true
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+
+# ---- Video out: WebRTC ------------------------------------------
+webrtc: true
+# The browsers do not come here directly: server.js passes their
+# requests on, so the Cloudflare link works for the video too.
+webrtcAddress: 127.0.0.1:8889
+# The video itself does not go through Cloudflare. It travels straight
+# between this computer and the viewer, on this UDP port.
+webrtcLocalUDPAddress: :8189
+
+# Helps a viewer outside your home find a way to this computer.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# If viewers on mobile data see no video, STUN is not enough for their
+# network and you need a TURN server. Add it like this:
+#  - url: turn:your-turn-server:3478
+#    username: your-user
+#    password: your-password
+
+# ---- Things this project does not use ---------------------------
+rtmp: false
+hls: false
+srt: false
+moq: false
+
+# ---- The camera stream ------------------------------------------
+# The name "cam" is also used in video.js
+paths:
+  cam:
