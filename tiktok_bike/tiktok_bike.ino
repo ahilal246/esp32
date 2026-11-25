@@ -55,7 +55,6 @@ void loop() {
   if (millis() - lastPrint >= 1000) {
     lastPrint = millis();
     Serial.printf("RPM %3.0f  %s  ", rpm, fast ? "FAST" : "slow");
-    if (!mpuWorking()) Serial.print("(MPU6050 not answering)  ");
     if (paired) {
       unsigned long waited = millis() - lastVideoChange;
       unsigned long left = waited < videoTime ? (videoTime - waited + 999) / 1000 : 0;

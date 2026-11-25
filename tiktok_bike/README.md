@@ -18,7 +18,21 @@ No buttons any more.
 | `config.h` | **Your settings**: `RPM_X`, the 40 s / 200 s times, pins, Bluetooth name |
 | `tiktok_bike.ino` | The sketch: picks 40 s or 200 s from the RPM and changes the video |
 | `tiktok_mouse.h` / `tiktok_mouse.cpp` | The Bluetooth mouse code. No need to edit |
-| `mpu6050_rpm.h` / `mpu6050_rpm.cpp` | The MPU6050 code: wheel RPM from the gyro. No need to edit |
+| `mpu6050_rpm.h` / `mpu6050_rpm.cpp` | The MPU6050 code (MPU6050_light library): wheel RPM from the gyro. No need to edit |
+
+## How the RPM is measured
+
+The gyro gives the turning speed around its 3 axes (gx, gy, gz in
+degrees per second). Together they make the wheel's turning speed,
+whichever way the sensor faces:
+
+```
+deg/s = square root of (gx*gx + gy*gy + gz*gz)
+RPM   = deg/s / 6        (360 deg/s = 1 turn a second = 60 RPM)
+```
+
+The gyro range is set to ±2000 deg/s with `mpu.begin(3)`. The library's
+default, ±500 deg/s, would stop at 83 RPM, below X.
 
 ## Wiring
 
@@ -48,8 +62,8 @@ are not used any more.
 
 ## Setup
 
-1. Libraries: **HijelHID_BLEMouse** and **NimBLE-Arduino** (same as
-   before). The MPU6050 needs no library.
+1. Libraries (Library Manager): **HijelHID_BLEMouse** and
+   **NimBLE-Arduino** (same as before), plus **MPU6050_light** by rfetick.
 2. Board: your ESP32 (e.g. *ESP32 Dev Module*), ESP32 core 3.x.
 3. Open `tiktok_bike.ino` and upload.
 4. Switch it on with the wheel **still** for a few seconds: it measures
@@ -82,10 +96,9 @@ Faster than that still shows about 330, which still counts as fast.
 - It uses your speed **right now**. Example: you rode slowly for 60 s,
   then speed up. The video changes straight away, because 60 s is
   already more than 40 s.
-- The RPM is averaged over about 2 s (`RPM_SMOOTHING_SECONDS`), so one
-  bump doesn't count.
-- If the sensor stops answering (loose wire), it counts as stopped
-  (200 s videos). The ESP32 tries to reconnect it every second.
+- The RPM is averaged over about 1 s, so one bump doesn't count.
+- If a sensor wire comes loose, the RPM drops to about 0, which counts
+  as slow (200 s videos).
 
 ## Test at your desk
 
@@ -101,7 +114,8 @@ RPM 142  FAST  next video in 39 s
 
 | You see | Do this |
 |---|---|
-| `MPU6050: not found!` | Check the 4 wires; SDA and SCL may be swapped. If AD0 is wired to 3.3V, set `MPU_ADDRESS` to `0x69` |
-| `wheel never stood still`, or a few RPM when still | Switch on again with the wheel still |
+| `MPU6050: not found!` | Check the 4 wires; SDA and SCL may be swapped. Leave AD0 unconnected |
+| A few RPM when still, or RPM looks wrong | Switch on again with the wheel still (it calibrates at power on) |
+| RPM stays at 0 while riding | A wire came loose: fix it and restart the ESP32 |
 | One scroll doesn't change the video | Set `SCROLL_STEPS` to 2 or 3 |
 | Phone doesn't reconnect | Remove *TikTok Remote* in the phone's Bluetooth settings and pair again |
